@@ -8,8 +8,9 @@ const puppeteer = require('puppeteer');
     // Переходим на сайт
     await page.goto('https://bones.fandom.com/ru/wiki/%D0%9A%D0%BE%D1%81%D1%82%D0%B8_%D0%92%D0%B8%D0%BA%D0%B8', { waitUntil: 'load', timeout: 120000 });
 
+
     // Нажимаем на элемент
-    await page.click('.page > .tabber wds-tabber > .ls-is-cached lazyloaded');
+    await page.click('.portal-4');
 
     // Ждём загрузки новой страницы
     await page.waitForSelector('CSS_СЕЛЕКТОР_ЗАГОЛОВКОВ');
