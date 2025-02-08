@@ -3,14 +3,34 @@ const fs = require('fs');
 const path = require('path');
 
 (async () => {
-    // Запуск браузера в видимом режиме
-    const browser = await puppeteer.launch({ headless: false });
+    // Запуск браузера с увеличенным таймаутом
+    const browser = await puppeteer.launch({
+        headless: false,
+        protocolTimeout: 40000000 // 2 минуты ожидания
+    });
     const page = await browser.newPage();
 
-    // Основной URL страницы
+
+    // Отключаем ненужные факторы для быстрой загрузки сайта    
+    // Включаем перехват запросов
+    await page.setRequestInterception(true);
+
+    page.on('request', (request) => {
+        const url = request.url();
+        const resourceType = request.resourceType();
+
+        // Отключаем ненужные ресурсы
+        if (resourceType === 'image' || resourceType === 'stylesheet' || resourceType === 'font' || resourceType === 'media') {
+            request.abort();  // Прерываем загрузку
+        } else {
+            request.continue();  // Продолжаем загрузку других типов ресурсов
+        }
+    });
+
+    // Основной URL
     const baseUrl = 'https://bones.fandom.com/ru/wiki/%D0%9A%D0%BE%D1%81%D1%82%D0%B8_%D0%92%D0%B8%D0%BA%D0%B8';
 
-    // Группы персонажей и их имена
+    // Группы персонажей
     const groups = {
         "Специалисты_Джефферсона": [
             "Темперанс Бреннан",
@@ -32,9 +52,9 @@ const path = require('path');
             "Винсент Мюррей",
             "Вэндал Брэй",
             "Финн Абернети",
-            "Дэйзи Вик",
+            "Дейзи Вик",
             "Колин Фишер",
-            "Абрасту Вазири"
+            "Арасту Вазири"
         ],
         "Преступники": [
             "Макс Кинан",
@@ -49,30 +69,58 @@ const path = require('path');
             "Кэролайн Джулиан",
             "Расселл Бреннан",
             "Рэй Баксли"
-        ],
+        ]
+    };
 
+    // Функция с повторными попытками
+    const retry = async (fn, retries = 3) => {
+        for (let i = 0; i < retries; i++) {
+            try {
+                return await fn();
+            } catch (error) {
+                console.log(`Ошибка, попытка ${i + 1}...`);
+                await new Promise(resolve => setTimeout(resolve, 2000));
+            }
+        }
+        throw new Error("Не удалось выполнить действие после 3 попыток");
     };
 
     // Функция для перехода на главную страницу
     const goToHomePage = async () => {
-        await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 100000 });
+        await page.goto(baseUrl, { waitUntil: 'networkidle2', timeout: 0 });
     };
 
-    // Функция для клика по группе персонажей
+    // Функция для нажатия на "Персонажи"
+    const clickCharactersButton = async () => {
+        await retry(async () => {
+            await page.waitForSelector('li[data-hash="Персонажи"] a', { visible: true });
+            await page.click('li[data-hash="Персонажи"] a');
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        await page.waitForSelector('#firstHeading', { timeout: 100000 });
+    };
+
+    // Функция для выбора группы
     const clickGroup = async (groupName) => {
-        await page.waitForSelector(`li[data-hash="${groupName}"] a`, { visible: true });
-        await page.click(`li[data-hash="${groupName}"] a`);
+        await retry(async () => {
+            await page.waitForSelector(`li[data-hash="${groupName}"] a`, { visible: true });
+            await page.click(`li[data-hash="${groupName}"] a`);
+        });
+        await new Promise(resolve => setTimeout(resolve, 2000));
         await page.waitForSelector('#firstHeading', { timeout: 100000 });
     };
 
-    // Функция для сбора данных о персонаже
+    // Функция сбора данных о персонаже
     const scrapeData = async (character, group) => {
-        // Ждём появления ссылки на персонажа и кликаем по ней
-        await page.waitForSelector(`a[title="${character}"]`, { visible: true });
-        await page.click(`a[title="${character}"]`);
+        await retry(async () => {
+            await page.waitForSelector(`a[title="${character}"]`, { visible: true });
+            await page.click(`a[title="${character}"]`);
+        });
+        await new Promise(resolve => setTimeout(resolve, 2000));
         await page.waitForSelector('#firstHeading', { timeout: 100000 });
 
-        // Извлекаем заголовки и описания
+        // Получаем заголовки и описания
         const data = await page.evaluate(() => {
             return Array.from(document.querySelectorAll('.mw-parser-output')).map((container, containerIndex) => ({
                 containerIndex,
@@ -81,38 +129,39 @@ const path = require('path');
             }));
         });
 
-        // Добавляем информацию о группе и имени персонажа
         return data.map(entry => ({ ...entry, group, character }));
     };
 
-    // Создание папки для хранения данных, если её нет
+    // Создание папки для сохранения
     const outputDir = path.join(__dirname, 'output');
     if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir);
 
-    // Формирование имени файла с текущей датой
+    // Формирование имени файла
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const filename = path.join(outputDir, `data_${timestamp}.json`);
 
     let allData = [];
 
-    await goToHomePage(); // Открываем главную страницу
+    await goToHomePage(); // Переход на главную страницу
 
-    // Перебираем все группы и их персонажей
+    // Перебираем группы и персонажей
     for (const [group, characters] of Object.entries(groups)) {
-        await clickGroup(group); // Кликаем по группе
+        await clickCharactersButton(); // Нажимаем "Персонажи"
+        await clickGroup(group); // Выбираем группу
 
         for (const character of characters) {
-            const characterData = await scrapeData(character, group); // Собираем данные персонажа
+            const characterData = await scrapeData(character, group);
             allData.push(...characterData);
 
-            await goToHomePage();  // Возвращаемся на главную страницу
-            await clickGroup(group); // Заново кликаем на группу, чтобы найти следующего персонажа
+            await goToHomePage(); // Возвращаемся на главную
+            await clickCharactersButton(); // Нажимаем "Персонажи"
+            await clickGroup(group); // Выбираем группу заново
         }
     }
 
-    // Сохраняем данные в JSON-файл
+    // Сохранение данных
     fs.writeFileSync(filename, JSON.stringify(allData, null, 2), 'utf-8');
     console.log(`Данные сохранены в ${filename}`);
 
-    await browser.close(); // Закрываем браузер
+    await browser.close(); // Закрытие браузера
 })();
