@@ -6,7 +6,7 @@ const path = require('path');
     // Запуск браузера с увеличенным таймаутом
     const browser = await puppeteer.launch({
         headless: false,
-        protocolTimeout: 40000000 // 2 минуты ожидания
+        protocolTimeout: 40000000
     });
     const page = await browser.newPage();
 
