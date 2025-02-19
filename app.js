@@ -5,8 +5,9 @@ const path = require('path');
 (async () => {
     // Запуск браузера с увеличенным таймаутом
     const browser = await puppeteer.launch({
+        executablePath: '/usr/bin/google-chrome',
         headless: false,
-        protocolTimeout: 40000000
+        protocolTimeout: 40000000,
     });
     const page = await browser.newPage();
 
@@ -61,9 +62,6 @@ const path = require('path');
             "Говард Эпс",
             "Гормогон",
             "Кристофер Пеллант"
-        ],
-        "Прочие": [
-            "Категория:Персонажи"
         ]
     };
 

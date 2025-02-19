@@ -1,9 +1,12 @@
+// Это просто доп инструмент чтобы взять нужыне заголовки
+
 const puppeteer = require('puppeteer');
 const fs = require('fs');
 const path = require('path');
 
 (async () => {
     const browser = await puppeteer.launch({
+        executablePath: '/usr/bin/google-chrome',
         headless: false,
         protocolTimeout: 40000000
     });
@@ -34,6 +37,31 @@ const path = require('path');
     });
 
     const baseUrl = 'https://bones.fandom.com/ru/wiki/%D0%9A%D0%BE%D1%81%D1%82%D0%B8_%D0%92%D0%B8%D0%BA%D0%B8';
+
+    const repeat =[
+            "Темперанс Бреннан",
+            "Джек Ходжинс",
+            "Энджела Монтенегро",
+            "Кэмила Сероян",
+            "Закари Урия Эдди",
+            "Сили Бут",
+            "Лэнс Свитс",
+            "Тим Салливан",
+            "Пэйтон Перотта",
+            "Дженни Шоу",
+            "Сэм Каллен",
+            "Кларк Эдисон",
+            "Винсент Мюррей",
+            "Вэндал Брэй",
+            "Финн Абернети",
+            "Дейзи Вик",
+            "Колин Фишер",
+            "Арасту Вазири",
+            "Макс Кинан",
+            "Говард Эпс",
+            "Гормогон",
+            "Кристофер Пеллант"
+        ];
 
     // Оптимизация страницы (удаление лишних элементов)
     const optimizePage = async () => {
@@ -82,16 +110,27 @@ const path = require('path');
         await retry(async () => {
             await page.waitForSelector('#firstHeading', { timeout: 10000 });
 
-            const data = await page.evaluate(() => {
+            const data = await page.evaluate((repeatArray) => {
                 const heading = document.querySelector("#firstHeading");
-                return heading ? heading.innerText.trim() : null;
-            });
+                const title = heading ? heading.innerText.trim() : null;
+    
+                const textElements = document.querySelectorAll('.category-page__members a');
+                let textContent = Array.from(textElements)
+                    .map(el => el.innerText.trim())
+                    .filter(text => text.length > 0 && !repeatArray.includes(text)); // Фильтруем повторяющиеся тексты
+    
+                return { title, text: textContent };
+            }, repeat); // 👈 Передаем `repeat` внутрь `evaluate()`
+    
+            if (!data.title || repeat.includes(data.title) || data.text.length === 0) {
+                console.log(`⚠️ Заголовок '${data.title}' или текст уже есть в списке, пропуск...`);
+                return;
+            }
 
-            if (!data) throw new Error("Не удалось найти заголовок!");
 
             const now = new Date();
             const formattedDate = now.toISOString().replace(/:/g, '-');
-            const dirPath = path.join(__dirname, 'source');
+            const dirPath = path.join(__dirname, 'Others');
 
             if (!fs.existsSync(dirPath)) fs.mkdirSync(dirPath, { recursive: true });
 
