@@ -117,15 +117,15 @@ const path = require('path');
                 const textElements = document.querySelectorAll('.category-page__members a');
                 let textContent = Array.from(textElements)
                     .map(el => el.innerText.trim())
-                    .filter(text => text.length > 0 && !repeatArray.includes(text)); // Фильтруем повторяющиеся тексты
+                    .filter(text => text.length > 0 && !repeatArray.includes(text) && !text.includes("Категория:")); // Фильтруем повторяющиеся тексты и если есть слово Категория:
     
                 return { title, text: textContent };
             }, repeat); // 👈 Передаем `repeat` внутрь `evaluate()`
     
-            if (!data.title || repeat.includes(data.title) || data.text.length === 0) {
-                console.log(`⚠️ Заголовок '${data.title}' или текст уже есть в списке, пропуск...`);
+            if (!data.title || repeat.includes(data.title) || data.text.length === 0 || data.title.includes("Категория:")) {
+                console.log(`⚠️ Заголовок '${data.title}' или текст содержит запрещенное слово, пропуск...`);
                 return;
-            }
+            };
 
 
             const now = new Date();

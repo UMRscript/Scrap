@@ -63,7 +63,44 @@ const path = require('path');
             "Гормогон",
             "Кристофер Пеллант"
         ]
+        
     };
+
+    const AllOthers = [
+    "Алекс Радзивилл",
+    "Анджела Монтенегро",
+    "Артур Грейвс",
+    "Бет Майер",
+    "Венделл Брэй",
+    "Винсент Найджел-Мюррей",
+    "Гордон Гордон Уайт",
+    "Грейсон Бараса",
+    "Джаред Бут",
+    "Джеймс Обри",
+    "Джессика Уоррен",
+    "Джеффри Ходжинс",
+    "Зак Эдди",
+    "Иосип Радик",
+    "Кевин Холлингс",
+    "Кристина Бут",
+    "Кристофер Пелант",
+    "Кэмилла Сароян",
+    "Кэролайн Джулиан",
+    "Марианна Бут",
+    "Михир Рошан",
+    "Падми Даладж",
+    "Паркер Бут",
+    "Рассел Бреннан",
+    "Рокси Лайон",
+    "Рут Кинан",
+    "Рэй Баксли",
+    "Сара Коскоф",
+    "Томас Вега",
+    "Тони",
+    "Хэнк Бут Младший",
+    "Эдвин Бут",
+    "Эми Холлистер"
+    ];
 
     // Функция с повторными попытками
     const retry = async (fn, retries = 3) => {
@@ -150,6 +187,37 @@ const path = require('path');
             await clickCharactersButton(); // Нажимаем "Персонажи"
             await clickGroup(group); // Выбираем группу заново
         }
+    }
+
+    // Функция для перехода в "Категория:Прочие"
+    const clickAllOthersCategory = async () => {
+        await retry(async () => {
+            await page.waitForSelector('li[data-hash="Персонажи"] a', { visible: true });
+            await page.click('li[data-hash="Персонажи"] a');
+        });
+
+        await retry(async () => {
+            await page.waitForSelector('li[data-hash="Прочие"] a', { visible: true });
+            await page.click('li[data-hash="Прочие"] a');
+        });
+
+        await retry(async () => {
+            await page.waitForSelector('a[title="Категория:Персонажи"]', { visible: true });
+            await page.click('a[title="Категория:Персонажи"]');
+        });
+
+        await page.waitForSelector('#firstHeading', { timeout: 100000 });
+    };
+
+    await goToHomePage();
+    await clickAllOthersCategory();
+
+    for (const character of AllOthers) {
+        const characterData = await scrapeData(character, "Прочие персонажи");
+        allData.push(...characterData);
+
+        await goToHomePage();
+        await clickAllOthersCategory();
     }
 
     // Сохранение данных
